@@ -1,4 +1,3 @@
-//`include "/home/train/gaoyudi/MacroCircuitLib/src/ZionBceLib/ZionBasicCircuitLib.sv"
 `Use_ZionBasicCircuitLib(Bc) 
 `Use_ZionRiscvIsaLib(Rvi)
 
@@ -42,7 +41,7 @@ interface ZionProcessorComponentLib_PcSetChannelItf
   modport out(output en, tgtPc);
 
 endinterface : ZionProcessorComponentLib_PcSetChannelItf
-//`endif
+// `endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Macro name   : ZionProcessorComponentLib_RfRdChannelItf
@@ -84,7 +83,7 @@ interface ZionProcessorComponentLib_RfRdChannelItf
   modport regfile(input rs , output dat);
  
 endinterface : ZionProcessorComponentLib_RfRdChannelItf
-//`endif
+// `endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Macro name   : ZionProcessorComponentLib_RfWrChannelItf
@@ -127,7 +126,8 @@ interface ZionProcessorComponentLib_RfWrChannelItf
   modport out(output vld, rd, dat);
 
 endinterface : ZionProcessorComponentLib_RfWrChannelItf
-//`endif
+// `endif
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Macro name             : ZionProcessorComponentLib_ForwardMux
 // Author                 : Wenheng Ma
@@ -150,7 +150,7 @@ endinterface : ZionProcessorComponentLib_RfWrChannelItf
   `__DefErr__(ZionProcessorComponentLib_ForwardMux)
 `else
   `define ZionProcessorComponentLib_ForwardMux(UnitName,iFwdBusIf_MT,iRs_MT,iRsDat_MT,oDatHazard_MT,oFnlRsDat_MT)  \
-ZionProcessorComponentLib_ForwardMux  #( .FWD_PORT_NUM(1),                           \
+ZionProcessorComponentLib_ForwardMux  #( .FWD_PORT_NUM(0),                           \
                                          .INPUT_RS_DATA_WIDTH($bits(iRsDat_MT)),        \
                                          .OUTPUT_RS_DATA_WIDTH($bits(oFnlRsDat_MT)))    \
                                 UnitName(                                            \
@@ -270,11 +270,15 @@ localparam
   // Get next PC 
   logic [SET_PC_WIDTH-1:0] PrioPc;
   logic [PORT_NUM    -1:0] setEnOh;
-  `BcOnehotDefBitmap(setEnOh, iSetEn);//form low to high to find 1st
+  `BcOnehotDefBitmap(setEnOh, iSetEn);//form low to high to find first 1
+  initial begin
+    $display("iSetEn=%0d,setEnOh=%0d",iSetEn,setEnOh);
+  end
   `BcMuxOnehot(U_MuxOnehot, setEnOh, iSetPc, PrioPc);
 
   wire [SET_PC_WIDTH-1:0] nxtStepPc = oPc + `BcMaskM(rRstFlg,iNxtPcStep);
   wire stepPcVld = (setEnOh=='0) | ~rRstFlg;
+  //assign oNxtPc = PrioPc | `BcMaskM(stepPcVld,nxtStepPc);
   assign oNxtPc = (stepPcVld)? nxtStepPc : PrioPc;
   // PC register
   `BcEnRcDff  (U_EnRcDff_oPc,
@@ -286,7 +290,6 @@ localparam
   // TODO: Parameter check. Width check
 endmodule : ZionProcessorComponentLib_PcGen
 `endif
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Macro name   : ZionProcessorComponentLib_LsuItf
 // Author       : Wenheng Ma
@@ -312,17 +315,17 @@ endmodule : ZionProcessorComponentLib_PcGen
 interface ZionProcessorComponentLib_LsuItf
  #(RV64=0);
    localparam DATA_WIDTH = 32*(1+RV64);
-   logic memEn, load, store, unsignedFlg;
+   logic memEn, load, store, unsignedFlg,lwstall;
    logic [1:0] memWidth;
    logic [DATA_WIDTH-1:0] storeDat, memAddr;
  
-   modport in (input  memEn, load, store, unsignedFlg, memWidth, storeDat, memAddr);
-   modport out(output memEn, load, store, unsignedFlg, memWidth, storeDat, memAddr);
+   modport in (input  memEn, load, store, unsignedFlg, memWidth, storeDat, memAddr,lwstall);
+   modport out(output memEn, load, store, unsignedFlg, memWidth, storeDat, memAddr,lwstall);
    modport OutNoAddr(output memEn, load, store, unsignedFlg, memWidth, storeDat);
    modport OutAddr(output memAddr);
  
  endinterface : ZionProcessorComponentLib_LsuItf
-//`endif
+// `endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Macro name             : ZionProcessorComponentLib_TurtleDecoder
@@ -334,18 +337,18 @@ interface ZionProcessorComponentLib_LsuItf
 //   INPUT_RS_DATA_WIDTH  - The width of input RS data
 //   OUTPUT_RS_DATA_WIDTH - The width of output RS data
 // Description            :
-//   Decode
+//   Forwardmux
 // Modification History:
 //    Date    |   Author   |   Version   |   Change Description
 //======================================================================================================================
 // 2019-11-08 | Wenheng Ma |     1.0     |   Original Version
 // 2019-11-09 |  Yudi Gao  |     2.0     |   add testbench
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
- `ifndef Disable_ZionProcessorComponentLib_TurtleDecoder
- `ifdef ZionProcessorComponentLib_TurtleDecoder
-   `__DefErr__(ZionProcessorComponentLib_TurtleDecoder)
- `else
-  `define ZionProcessorComponentLib_TurtleDecoder(UnitName,iPc_MT,iIns_MT,bRfRdIf_MT,oRd_MT,oIntDeRsltIf_MT,oLsuDeRsltIf_MT)  \
+`ifndef Disable_ZionProcessorComponentLib_TurtleDecoder
+`ifdef ZionProcessorComponentLib_TurtleDecoder
+  `__DefErr__(ZionProcessorComponentLib_TurtleDecoder)
+`else
+  `define ZionProcessorComponentLib_TurtleDecoder(UnitName,iPc_MT,iIns_MT,bRfRdIf_MT,oRd_MT,oIntDeRsltIf_MT,oLsuDeRsltIf_MT,rdVld_MT)  \
 ZionProcessorComponentLib_TurtleDecoder #()                                    \
                                 UnitName(                                      \
                                    .iPc(iPc_MT),                               \
@@ -353,8 +356,8 @@ ZionProcessorComponentLib_TurtleDecoder #()                                    \
                                    .bRfRdIf(bRfRdIf_MT),                       \
                                    .oRd(oRd_MT),                               \
                                    .oIntDeRsltIf(oIntDeRsltIf_MT),             \
-                                   .oLsuDeRsltIf(oLsuDeRsltIf_MT)              \
-                                   )
+                                   .oLsuDeRsltIf(oLsuDeRsltIf_MT),             \
+                                   .rdVld(rdVld_MT))
   `endif 
 module ZionProcessorComponentLib_TurtleDecoder
 ( 
@@ -363,14 +366,15 @@ module ZionProcessorComponentLib_TurtleDecoder
   ZionProcessorComponentLib_RfRdChannelItf.read bRfRdIf[2],
   output logic [4:0] oRd,
   `RviIntInsExItf.IntBjMemDeOut oIntDeRsltIf, 
-  ZionProcessorComponentLib_LsuItf.OutNoAddr oLsuDeRsltIf
+  ZionProcessorComponentLib_LsuItf.OutNoAddr oLsuDeRsltIf,
+  output rdVld
 );
 
   `RviRvimazDecodeItf RvDeIf(iIns);
 
   wire rs1Vld = RvDeIf.rs1Enable;
   wire rs2Vld = RvDeIf.rs2Enable;
-  wire rdVld  = RvDeIf.rdEnable ;
+  assign rdVld  = RvDeIf.rdEnable ;
   wire [4:0] rs1 = RvDeIf.rs1;
   wire [4:0] rs2 = RvDeIf.rs2;
   assign     oRd = rdVld ? RvDeIf.rd : '0;
@@ -459,6 +463,93 @@ endmodule : ZionProcessorComponentLib_TurtleDecoder
   `__DefErr__(ZionProcessorComponentLib_RegFile)
 `else
   `define ZionProcessorComponentLib_RegFile(UnitName,clk_MT,rst_MT,iRdPort_MT,iWrPort_MT,iFwdPort_MT)  \
+ZionProcessorComponentLib_RegFile  #(.REG_NUM(32),                 \
+                                     .RD_PORT_NUM(2),         \
+                                     .FWD_PORT_NUM(2),       \
+                                     .RST_CFG(4))                 \
+                                UnitName(                               \
+                                   .clk(clk_MT),                        \
+                                   .rst(rst_MT),                        \
+                                   .iRdPort(iRdPort_MT),                \
+                                   .iWrPort(iWrPort_MT),                \
+                                   .iFwdPort(iFwdPort_MT)               \
+                                )
+  `endif 
+module ZionProcessorComponentLib_RegFile
+#(REG_NUM      = "-",
+  RD_PORT_NUM  = "-",
+  FWD_PORT_NUM = "-",
+  RST_CFG      = "-"
+)(
+  input clk,rst,
+  ZionProcessorComponentLib_RfRdChannelItf.regfile iRdPort[RD_PORT_NUM],
+  ZionProcessorComponentLib_RfWrChannelItf.in      iWrPort,
+  ZionProcessorComponentLib_RfWrChannelItf.in      iFwdPort[FWD_PORT_NUM]
+);
+  logic [REG_NUM-1:0][$bits(iWrPort.dat)-1:0] regFile_r;
+  logic [REG_NUM-1:0]wrEnOh;
+  `BcOnehotDefBinM(wrEnOh,iWrPort.rd);
+  for(genvar i=1;i<REG_NUM;i++)begin : RfRegGen
+    `BcEnRcDff(U_RfReg, clk,rst,wrEnOh[i],iWrPort.dat,regFile_r[i],'0,RST_CFG);
+  end
+  assign regFile_r[0] = '0;
+  logic [RD_PORT_NUM-1:0][$bits(iRdPort[0].dat)-1:0] rfRdDat;
+  logic [RD_PORT_NUM-1:0]                            fwdHazard;
+  for(genvar i=0;i<RD_PORT_NUM;i++)begin : ReadDatGen
+    assign rfRdDat[i] = regFile_r[iRdPort[i].rs];
+    `ZionProcessorComponentLib_ForwardMux(U_FwdMux, iFwdPort, iRdPort[i].rs, rfRdDat[i], fwdHazard[i],iRdPort[i].dat);
+  end
+endmodule : ZionProcessorComponentLib_RegFile
+`endif
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// `ifndef Disable_ZionProcessorComponentLib_RegFile0
+// `ifdef ZionProcessorComponentLib_RegFile0
+//   `__DefErr__(ZionProcessorComponentLib_RegFile0)
+// `else
+//   `define ZionProcessorComponentLib_RegFile0(UnitName,clk_MT,rst_MT,iRdPort_MT,iWrPort_MT)  \
+// ZionProcessorComponentLib_RegFile0  #(.REG_NUM(32),                 \
+//                                      .RD_PORT_NUM(2),         \
+//                                      .RST_CFG(4))                 \
+//                                 UnitName(                               \
+//                                    .clk(clk_MT),                        \
+//                                    .rst(rst_MT),                        \
+//                                    .iRdPort(iRdPort_MT),                \
+//                                    .iWrPort(iWrPort_MT)                \
+//                                    )
+//   `endif 
+// module ZionProcessorComponentLib_RegFile0
+// #(REG_NUM      = "-",
+//   RD_PORT_NUM  = "-",
+//   //FWD_PORT_NUM = "-",
+//   RST_CFG      = "-"
+// )(
+//   input clk,rst,
+//   ZionProcessorComponentLib_RfRdChannelItf.regfile iRdPort[RD_PORT_NUM],
+//   ZionProcessorComponentLib_RfWrChannelItf.in      iWrPort
+//   //ZionProcessorComponentLib_RfWrChannelItf.in      iFwdPort[FWD_PORT_NUM]
+// );
+//   logic [REG_NUM-1:0][$bits(iWrPort.dat)-1:0] regFile_r;
+//   logic [REG_NUM-1:0]wrEnOh;
+//   `BcOnehotDefBinM(wrEnOh,iWrPort.rd);
+//   for(genvar i=1;i<REG_NUM;i++)begin : RfRegGen
+//     `BcEnRcDff(U_RfReg, clk,rst,wrEnOh[i]&iWrPort.vld,iWrPort.dat,regFile_r[i],'0,RST_CFG);
+//   end
+//   assign regFile_r[0] = '0;
+//   logic [RD_PORT_NUM-1:0][$bits(iRdPort[0].dat)-1:0] rfRdDat;
+//   logic [RD_PORT_NUM-1:0]                            fwdHazard;
+//   for(genvar i=0;i<RD_PORT_NUM;i++)begin : ReadDatGen
+//     assign rfRdDat[i] = regFile_r[iRdPort[i].rs];
+//     assign iRdPort[i].dat = rfRdDat[i];
+//     //`ZionProcessorComponentLib_ForwardMux(U_FwdMux, iFwdPort, iRdPort[i].rs, rfRdDat[i], fwdHazard[i],iRdPort[i].dat);
+//   end
+// endmodule : ZionProcessorComponentLib_RegFile0
+// `endif
+`ifndef Disable_ZionProcessorComponentLib_RegFile
+`ifdef ZionProcessorComponentLib_RegFile
+  `__DefErr__(ZionProcessorComponentLib_RegFile)
+`else
+  `define ZionProcessorComponentLib_RegFile(UnitName,clk_MT,rst_MT,iRdPort_MT,iWrPort_MT,iFwdPort_MT)  \
 ZionProcessorComponentLib_RegFile  #(.REG_NUM(32),                      \
                                      .RD_PORT_NUM(2),                   \
                                      .FWD_PORT_NUM(1),                  \
@@ -506,7 +597,7 @@ module ZionProcessorComponentLib_RegFile
   end
 endmodule : ZionProcessorComponentLib_RegFile
 `endif
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 `Unuse_ZionBasicCircuitLib(Bc) 
 `Unuse_ZionRiscvIsaLib(Rvi)
+
